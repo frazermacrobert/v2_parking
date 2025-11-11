@@ -137,8 +137,12 @@ async function loadEmployees(){
 
 function onSelectEmployee(id){
   state.employeeId = id || null;
-  const emp = state.employees.find(e=>e.id===id);
-  document.getElementById('avatar').src = emp ? avatarUrl(emp) : '';
+  const emp = state.employees.find(e => e.id === id);
+  const avatarImg = document.getElementById('avatar');
+  avatarImg.src = emp
+    ? avatarUrl(emp)
+    : 'https://frazermacrobert.github.io/traitors_v4/assets/pngs/unknown-employee-1.png';
+  avatarImg.alt = emp ? `${emp.name} avatar` : 'no employee selected';
 }
 
 function withinWindow(d){
