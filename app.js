@@ -13,7 +13,8 @@ const state = {
   employeeId: null,
   adminPass: "",
   adminMode: false,
-  data: []
+  data: [],
+  adminLog: []
 };
 
 function startOfWeek(d){
@@ -39,6 +40,13 @@ async function init(){
   const avatarImg = document.getElementById("avatar");
   avatarImg.src = PLACEHOLDER_URL;
   avatarImg.alt = "no employee selected";
+  const storedLog = localStorage.getItem("adminLog");
+  if (storedLog) {
+    state.adminLog = JSON.parse(storedLog).map(entry => ({
+      ...entry,
+      timestamp: new Date(entry.timestamp)
+    }));
+  }
   await loadEmployees();
   await refreshWeek();
 }
@@ -46,6 +54,7 @@ async function init(){
 function bindUI(){
   document.getElementById("infoBtn").onclick = ()=> document.getElementById("info").classList.add("show");
   document.getElementById("closeInfo").onclick = ()=> document.getElementById("info").classList.remove("show");
+  document.getElementById("closeDayInfo").onclick = ()=> document.getElementById("dayInfoModal").style.display = "none";
   document.getElementById("prevWeek").onclick = ()=> { state.monday = addDays(state.monday, -7); refreshWeek(); };
   document.getElementById("nextWeek").onclick = ()=> { state.monday = addDays(state.monday, 7); refreshWeek(); };
   document.getElementById("employeeSelect").onchange = (e)=> onSelectEmployee(e.target.value);
@@ -199,7 +208,10 @@ function renderDays(){
     const card = document.createElement("section");
     card.className = "day";
     card.innerHTML = `
-      <h3>${labelDay(day)}</h3>
+      <div class="day-header">
+        <h3>${labelDay(day)}</h3>
+        <button class="day-info-btn" data-iso="${iso}">(i)</button>
+      </div>
       <div class="row">
         <button class="btn primary" data-kind="parking">Request parking</button>
         <button class="btn primary" data-kind="desk">Request desk</button>
@@ -220,6 +232,10 @@ function renderDays(){
     card.querySelectorAll(".btn.primary").forEach(btn => {
       btn.onclick = () => requestSlot(iso, btn.dataset.kind);
     });
+
+    card.querySelector(".day-info-btn").onclick = (e) => {
+      showDayInfo(e.target.dataset.iso);
+    };
 
     // fill bars
     fillBar(iso, "parking", document.getElementById(`pb-${iso}`), CAP.parking);
@@ -331,17 +347,104 @@ async function requestSlot(iso, kind){
 async function adminApprove(id){
   const { error } = await supabase.rpc("v2_admin_approve", { p_request_id: id, p_passphrase: state.adminPass });
   if(error){ alert(error.message); return; }
-  await refreshWeek();
+  const r = state.data.find(r => r.id === id);
+  if(r) {
+    r.status = "confirmed";
+    state.adminLog.push({ action: "approve", requestId: id, employee: nameFor(r.employee_id), date: r.date, timestamp: new Date() });
+    saveAdminLog();
+  }
+  renderDays();
 }
 async function adminReject(id){
   const { error } = await supabase.rpc("v2_admin_reject", { p_request_id: id, p_passphrase: state.adminPass });
   if(error){ alert(error.message); return; }
-  await refreshWeek();
+  const r = state.data.find(r => r.id === id);
+  if(r) {
+    state.adminLog.push({ action: "reject", requestId: id, employee: nameFor(r.employee_id), date: r.date, timestamp: new Date() });
+    saveAdminLog();
+    state.data = state.data.filter(r => r.id !== id);
+    promoteNext(r.date, r.kind);
+  }
+  renderDays();
 }
 async function adminCancel(id){
   const { error } = await supabase.rpc("v2_admin_cancel", { p_request_id: id, p_passphrase: state.adminPass });
   if(error){ alert(error.message); return; }
-  await refreshWeek();
+  const r = state.data.find(r => r.id === id);
+  if(r) {
+    state.adminLog.push({ action: "cancel", requestId: id, employee: nameFor(r.employee_id), date: r.date, timestamp: new Date() });
+    saveAdminLog();
+    state.data = state.data.filter(r => r.id !== id);
+    promoteNext(r.date, r.kind);
+  }
+  renderDays();
+}
+
+function showDayInfo(iso) {
+  const modal = document.getElementById("dayInfoModal");
+  const title = document.getElementById("dayInfoTitle");
+  const content = document.getElementById("dayInfoContent");
+  const day = new Date(iso);
+
+  title.textContent = labelDay(day);
+
+  const parkingRequests = byDateKind(iso, "parking");
+  const deskRequests = byDateKind(iso, "desk");
+
+  let html = "<h4>Parking</h4>";
+  if (parkingRequests.length > 0) {
+    html += "<ul>";
+    parkingRequests.forEach(r => {
+      html += `<li>${nameFor(r.employee_id)} - ${r.status}</li>`;
+    });
+    html += "</ul>";
+  } else {
+    html += "<p>No parking requests.</p>";
+  }
+
+  html += "<h4>Desk</h4>";
+  if (deskRequests.length > 0) {
+    html += "<ul>";
+    deskRequests.forEach(r => {
+      html += `<li>${nameFor(r.employee_id)} - ${r.status}</li>`;
+    });
+    html += "</ul>";
+  } else {
+    html += "<p>No desk requests.</p>";
+  }
+
+  content.innerHTML = html;
+
+  const adminLogEntries = state.adminLog.filter(entry => entry.date === iso);
+  if (adminLogEntries.length > 0) {
+    html += "<h4>Admin Activity Log</h4><ul>";
+    adminLogEntries.forEach(entry => {
+      html += `<li>${entry.employee}'s request was ${entry.action}d at ${entry.timestamp.toLocaleTimeString()}</li>`;
+    });
+    html += "</ul>";
+  } else {
+    html += "<h4>Admin Activity Log</h4><p>No admin activity recorded for this day.</p>";
+  }
+
+  content.innerHTML = html;
+  modal.style.display = "flex";
+}
+
+function promoteNext(iso, kind) {
+  const cap = CAP[kind];
+  const requests = byDateKind(iso, kind);
+  const confirmedCount = requests.filter(r => r.status === "confirmed").length;
+
+  if (confirmedCount < cap) {
+    const pendingRequests = requests.filter(r => r.status === "pending").sort((a, b) => a.position - b.position);
+    if (pendingRequests.length > 0) {
+      adminApprove(pendingRequests[0].id);
+    }
+  }
+}
+
+function saveAdminLog() {
+  localStorage.setItem("adminLog", JSON.stringify(state.adminLog));
 }
 
 init();
