@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pooled Booking v2</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="https://esm.sh/@supabase/supabase-js@2.45.5"></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Pooled Booking</h1>
+    <button id="infoBtn" aria-label="Info">(i)</button>
+  </header>
+
+  <section class="info-popover" id="info">
+    <div class="panel">
+      <h2>How it works</h2>
+      <p>Request a desk or parking for a weekday. Confirmed slots fill first. Others join a transparent queue. Admins review and can cancel or reject. UK bank holidays are blocked.</p>
+      <button id="closeInfo">Close</button>
+    </div>
+  </section>
+
+  <section class="controls">
+    <div class="weeknav">
+      <button id="prevWeek">&larr; Prev</button>
+      <div id="weekLabel"></div>
+      <button id="nextWeek">Next &rarr;</button>
+    </div>
+    <div class="who">
+      <label>
+        Employee
+        <select id="employeeSelect"></select>
+      </label>
+      <img id="avatar" class="avatar" alt="employee avatar" />
+    </div>
+    <div class="admin">
+      <input id="adminPass" type="password" placeholder="Admin passphrase">
+      <button id="enterAdmin">Enter admin</button>
+      <span id="adminStatus" class="muted"></span>
+    </div>
+  </section>
+
+  <main id="days" class="days"></main>
+
+  <footer class="foot">
+    <small>v2 · 5 parking · 9 desks · 8-week window · parking cap 3/week</small>
+  </footer>
+</body>
+</html>
