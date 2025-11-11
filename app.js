@@ -208,10 +208,15 @@ function renderDays(){
     const card = document.createElement("section");
     card.className = "day";
     card.innerHTML = `
-      <div class="day-header">
-        <h3>${labelDay(day)}</h3>
-        <button class="day-info-btn" data-iso="${iso}">(i)</button>
-      </div>
+   <div class="day-header">
+  <h3>${labelDay(day)}</h3>
+  <button class="day-info-btn" data-iso="${iso}" aria-label="Info">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+      <circle cx="12" cy="12" r="10" stroke="none"/>
+      <text x="12" y="16" text-anchor="middle" font-size="12" font-family="sans-serif" fill="white" font-weight="bold">i</text>
+    </svg>
+  </button>
+</div>
       <div class="row">
         <button class="btn primary" data-kind="parking">Request parking</button>
         <button class="btn primary" data-kind="desk">Request desk</button>
