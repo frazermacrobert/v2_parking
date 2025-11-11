@@ -17,6 +17,51 @@ const state = {
   adminLog: []
 };
 
+// inject minimal styles for the info button
+function injectStyles() {
+  if (document.getElementById("day-info-btn-styles")) return;
+  const css = `
+  .day-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background-color: rgba(255, 230, 230, 0.5);
+    border-radius: 50%;
+    cursor: pointer;
+    color: #e88b8b;
+    transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    padding: 0;
+    line-height: 0;
+  }
+  .day-info-btn:hover {
+    background-color: rgba(255, 230, 230, 0.8);
+    color: #d06666;
+    transform: scale(1.08);
+  }
+  .day-info-btn:focus-visible {
+    outline: 2px solid #f3b5b5;
+    outline-offset: 2px;
+  }
+  .day-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .info-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
+  }`;
+  const style = document.createElement("style");
+  style.id = "day-info-btn-styles";
+  style.textContent = css;
+  document.head.appendChild(style);
+}
+
 function startOfWeek(d){
   const dd = new Date(d);
   const day = dd.getUTCDay();
@@ -35,6 +80,7 @@ function avatarUrl(emp){
 }
 
 async function init(){
+  injectStyles();
   bindUI();
   // show placeholder immediately before data loads
   const avatarImg = document.getElementById("avatar");
@@ -208,15 +254,16 @@ function renderDays(){
     const card = document.createElement("section");
     card.className = "day";
     card.innerHTML = `
-   <div class="day-header">
-  <h3>${labelDay(day)}</h3>
-  <button class="day-info-btn" data-iso="${iso}" aria-label="Info">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-      <circle cx="12" cy="12" r="10" stroke="none"/>
-      <text x="12" y="16" text-anchor="middle" font-size="12" font-family="sans-serif" fill="white" font-weight="bold">i</text>
-    </svg>
-  </button>
-</div>
+      <div class="day-header">
+        <h3>${labelDay(day)}</h3>
+        <button class="day-info-btn" data-iso="${iso}" aria-label="Info">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="info-icon" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="12" y1="10" x2="12" y2="16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="12" cy="7.25" r="1.1" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
       <div class="row">
         <button class="btn primary" data-kind="parking">Request parking</button>
         <button class="btn primary" data-kind="desk">Request desk</button>
@@ -238,9 +285,12 @@ function renderDays(){
       btn.onclick = () => requestSlot(iso, btn.dataset.kind);
     });
 
-    card.querySelector(".day-info-btn").onclick = (e) => {
-      showDayInfo(e.target.dataset.iso);
-    };
+    // robust info click handler
+    const infoBtn = card.querySelector(".day-info-btn");
+    infoBtn.addEventListener("click", (e) => {
+      const btn = e.currentTarget;
+      showDayInfo(btn.dataset.iso);
+    });
 
     // fill bars
     fillBar(iso, "parking", document.getElementById(`pb-${iso}`), CAP.parking);
