@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.5";
 
 const SUPA_URL = "https://gukoruzworxkixrygudn.supabase.co";
@@ -28,7 +27,7 @@ function formatDateISO(d){ return d.toISOString().slice(0,10); }
 function addDays(d,n){ const x = new Date(d); x.setUTCDate(x.getUTCDate()+n); return x; }
 function labelDay(d){ return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' }); }
 
-function avatarUrl(emp){ 
+function avatarUrl(emp){
   const slug = `${emp.name}-${emp.department}-1`.toLowerCase().replace(/\s+/g,'-');
   return `https://frazermacrobert.github.io/traitors_v4/assets/pngs/${slug}.png`;
 }
@@ -44,8 +43,87 @@ function bindUI(){
   document.getElementById('closeInfo').onclick = ()=> document.getElementById('info').classList.remove('show');
   document.getElementById('prevWeek').onclick = ()=> { state.monday = addDays(state.monday, -7); refreshWeek(); };
   document.getElementById('nextWeek').onclick = ()=> { state.monday = addDays(state.monday, 7); refreshWeek(); };
-  document.getElementById('enterAdmin').onclick = ()=> enterAdmin();
   document.getElementById('employeeSelect').onchange = (e)=> onSelectEmployee(e.target.value);
+
+  // Admin controls
+  const adminWrap = document.querySelector('.admin');
+  const passInput = document.getElementById('adminPass');
+  const enterBtn = document.getElementById('enterAdmin');
+  const statusEl = document.getElementById('adminStatus');
+
+  // Add a show password toggle next to the input if it does not already exist
+  if (!document.getElementById('showPass')) {
+    const label = document.createElement('label');
+    label.style.display = 'inline-flex';
+    label.style.alignItems = 'center';
+    label.style.gap = '6px';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'showPass';
+    const txt = document.createElement('span');
+    txt.textContent = 'Show';
+    label.appendChild(cb);
+    label.appendChild(txt);
+    adminWrap.insertBefore(label, enterBtn);
+    cb.addEventListener('change', () => {
+      passInput.type = cb.checked ? 'text' : 'password';
+    });
+  }
+
+  // Button acts as a true toggle
+  enterBtn.onclick = () => {
+    if (state.adminMode) {
+      setAdminMode(false);
+    } else {
+      const val = passInput.value.trim();
+      if (!val) {
+        statusEl.textContent = 'enter a passphrase';
+        return;
+      }
+      state.adminPass = val;
+      setAdminMode(true);
+    }
+  };
+
+  // Press Enter in the pass field to enable admin mode
+  passInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      if (!state.adminMode) {
+        const val = passInput.value.trim();
+        if (!val) {
+          statusEl.textContent = 'enter a passphrase';
+          return;
+        }
+        state.adminPass = val;
+        setAdminMode(true);
+      } else {
+        setAdminMode(false);
+      }
+    }
+  });
+
+  // Keep UI consistent on load
+  updateAdminUI();
+}
+
+function updateAdminUI(){
+  const enterBtn = document.getElementById('enterAdmin');
+  const statusEl = document.getElementById('adminStatus');
+  const passInput = document.getElementById('adminPass');
+
+  enterBtn.textContent = state.adminMode ? 'Exit admin' : 'Enter admin';
+  statusEl.textContent = state.adminMode ? 'admin on' : 'admin off';
+  // Optional: clear the field when switching off so you do not leave the pass lying around
+  if (!state.adminMode) {
+    state.adminPass = "";
+    passInput.value = "";
+  }
+}
+
+function setAdminMode(on){
+  state.adminMode = !!on;
+  updateAdminUI();
+  renderDays(); // re-render so queues and admin actions show or hide
 }
 
 async function loadEmployees(){
@@ -114,13 +192,16 @@ function renderDays(){
     `;
     container.appendChild(card);
 
+    // request buttons
     card.querySelectorAll('.btn.primary').forEach(btn => {
       btn.onclick = () => requestSlot(iso, btn.dataset.kind);
     });
 
+    // fill bars
     fillBar(iso, 'parking', document.getElementById(`pb-${iso}`), CAP.parking);
     fillBar(iso, 'desk', document.getElementById(`db-${iso}`), CAP.desk);
 
+    // admin queue
     if(state.adminMode){
       renderQueue(iso, 'parking');
       renderQueue(iso, 'desk');
@@ -139,6 +220,7 @@ function fillBar(iso, kind, el, cap){
   const confirmed = rows.filter(r => r.status === 'confirmed');
   const pending = rows.filter(r => r.status === 'pending');
 
+  // confirmed avatars
   confirmed.forEach(r => {
     const e = empFor(r.employee_id);
     const img = document.createElement('img');
@@ -148,6 +230,7 @@ function fillBar(iso, kind, el, cap){
     el.appendChild(img);
   });
 
+  // TBC up to capacity
   let slotsFilled = confirmed.length;
   for(let i=0; i < pending.length && slotsFilled < cap; i++, slotsFilled++){
     const p = pending[i];
@@ -158,6 +241,7 @@ function fillBar(iso, kind, el, cap){
     el.appendChild(div);
   }
 
+  // TBA placeholders
   for(let i=slotsFilled; i<cap; i++){
     const tba = document.createElement('span');
     tba.className = 'badge tba';
@@ -165,6 +249,7 @@ function fillBar(iso, kind, el, cap){
     el.appendChild(tba);
   }
 
+  // overflow counter
   const overflow = Math.max(0, pending.length - Math.max(0, cap - confirmed.length));
   if(overflow > 0){
     const extra = document.createElement('span');
@@ -210,7 +295,7 @@ async function requestSlot(iso, kind){
   if(!state.employeeId){ alert('Select an employee first'); return; }
   const d = new Date(iso);
   if(!withinWindow(d)){ alert('Date not in booking window'); return; }
-  const { data, error } = await supabase.rpc('v2_request_slot', {
+  const { error } = await supabase.rpc('v2_request_slot', {
     p_employee: state.employeeId,
     p_date: iso,
     p_kind: kind
@@ -219,16 +304,8 @@ async function requestSlot(iso, kind){
   await refreshWeek();
 }
 
-function enterAdmin(){
-  const v = document.getElementById('adminPass').value.trim();
-  if(!v){ state.adminPass = ""; state.adminMode = false; document.getElementById('adminStatus').textContent = 'admin off'; renderDays(); return; }
-  state.adminPass = v; state.adminMode = true;
-  document.getElementById('adminStatus').textContent = 'admin on';
-  renderDays();
-}
-
 async function adminApprove(id){
-  const { data, error } = await supabase.rpc('v2_admin_approve', { p_request_id: id, p_passphrase: state.adminPass });
+  const { error } = await supabase.rpc('v2_admin_approve', { p_request_id: id, p_passphrase: state.adminPass });
   if(error) { alert(error.message); return; }
   await refreshWeek();
 }
