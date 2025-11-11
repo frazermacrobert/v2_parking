@@ -76,17 +76,22 @@ function bindUI(){
   }
 
   // Admin toggle
+  function attemptAdminLogin() {
+    const val = passInput.value.trim();
+    if (val === 'parkyparker') {
+      state.adminPass = val;
+      setAdminMode(true);
+    } else {
+      statusEl.textContent = "Password incorrect";
+      passInput.value = "";
+    }
+  }
+
   enterBtn.onclick = () => {
     if (state.adminMode) {
       setAdminMode(false);
     } else {
-      const val = passInput.value.trim();
-      if (!val) {
-        statusEl.textContent = "enter a passphrase";
-        return;
-      }
-      state.adminPass = val;
-      setAdminMode(true);
+      attemptAdminLogin();
     }
   };
 
@@ -94,13 +99,7 @@ function bindUI(){
   passInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       if (!state.adminMode) {
-        const val = passInput.value.trim();
-        if (!val) {
-          statusEl.textContent = "enter a passphrase";
-          return;
-        }
-        state.adminPass = val;
-        setAdminMode(true);
+        attemptAdminLogin();
       } else {
         setAdminMode(false);
       }
@@ -117,6 +116,7 @@ function updateAdminUI(){
 
   enterBtn.textContent = state.adminMode ? "Exit admin" : "Enter admin";
   statusEl.textContent = state.adminMode ? "admin on" : "admin off";
+  passInput.disabled = state.adminMode;
   if (!state.adminMode) {
     state.adminPass = "";
     passInput.value = "";
