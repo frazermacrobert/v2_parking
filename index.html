@@ -11,7 +11,7 @@
 <body>
   <header class="topbar">
     <h1>Pooled Booking</h1>
-    <button id="infoBtn" aria-label="Info">(i)</button>
+    <button id="infoBtn" aria-label="Info">?</button>
   </header>
 
   <section class="info-popover" id="info">
@@ -47,5 +47,13 @@
   <footer class="foot">
     <small>v2 · 5 parking · 9 desks · 8-week window · parking cap 3/week</small>
   </footer>
+
+  <div class="modal-overlay" id="dayInfoModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeDayInfo">&times;</button>
+      <h2 id="dayInfoTitle"></h2>
+      <div id="dayInfoContent"></div>
+    </div>
+  </div>
 </body>
 </html>
